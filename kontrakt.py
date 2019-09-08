@@ -14,7 +14,6 @@ class _Invocation:
         self.args = args
         self.kwargs = kwargs
         self.result = None
-        self.exc_info = None
 
     def __enter__(self):
         try:
@@ -37,6 +36,11 @@ class Contract:
         self.condition = condition
         self.enabled = True
 
+    def _invoke(self, f, *args, **kwargs):
+        with _Invocation(self.condition, *args, **kwargs) as inv:
+            inv.result = f(*args, **kwargs)
+            return inv.result
+
 
 class ZeroOverheadContract(Contract):
     """A contract that checks its enabled state only once, when the decorator is applied.
@@ -52,9 +56,7 @@ class ZeroOverheadContract(Contract):
             return f
 
         def wrapper(*args, **kwargs):
-            with _Invocation(self.condition, *args, **kwargs) as inv:
-                inv.result = f(*args, **kwargs)
-                return inv.result
+            self._invoke(f, *args, **kwargs)
 
         return wrapper
 
@@ -67,10 +69,7 @@ class DynamicContract(Contract):
             if not self.enabled:
                 return f(*args, **kwargs)
 
-            # TODO: remove this duplication
-            with _Invocation(self.condition, *args, **kwargs) as inv:
-                inv.result = f(*args, **kwargs)
-                return inv.result
+            return self._invoke(f, *args, **kwargs)
 
         return wrapper
 
